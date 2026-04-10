@@ -1,21 +1,3 @@
-/*
- * ============================================================
- *   CASE STUDY 1: Smart Library Search Optimization
- *   Linear Search vs Binary Search
- *   Dataset: 50,000 Books (Unique Accession Numbers)
- * ============================================================
- *
- *  Covers:
- *    - Linear Search  (unsorted array, sequential scan)
- *    - Binary Search  (sorted array, halving strategy)
- *    - Best / Average / Worst case scenarios
- *    - Execution time, comparison count, sorting overhead
- *
- *  Compile:  g++ -O0 -o library_search library_search.cpp
- *  Run:      ./library_search
- * ============================================================
- */
-
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -28,36 +10,25 @@
 using namespace std;
 using namespace std::chrono;
 
-// ─────────────────────────────────────────────
-//  Constants
-// ─────────────────────────────────────────────
 const int DATASET_SIZE    = 50000;
-const int ACCESSION_MIN   = 100000;   // 6-digit accession numbers
+const int ACCESSION_MIN   = 100000;
 const int ACCESSION_MAX   = 999999;
+const int BENCHMARK_ITER  = 100;
 
-// ─────────────────────────────────────────────
-//  Search Result Structure
-// ─────────────────────────────────────────────
 struct SearchResult {
-    int    position;          // index found (-1 if not found)
-    long long comparisons;    // number of comparisons made
-    double timeUs;            // time in microseconds
+    int    position;
+    long long comparisons;
+    double timeUs;
     bool   found;
 };
 
-// ─────────────────────────────────────────────
-//  Dataset Generator
-//  Produces DATASET_SIZE unique random accession numbers
-// ─────────────────────────────────────────────
 vector<int> generateDataset(int size) {
-    mt19937 rng(42);  // fixed seed for reproducibility
+    mt19937 rng(42);
     uniform_int_distribution<int> dist(ACCESSION_MIN, ACCESSION_MAX);
 
     vector<int> dataset;
     dataset.reserve(size);
 
-    // Use a simple Fisher-Yates inspired unique fill
-    // Generate a larger pool, shuffle, pick first `size`
     vector<int> pool;
     pool.reserve(ACCESSION_MAX - ACCESSION_MIN + 1);
     for (int i = ACCESSION_MIN; i <= ACCESSION_MAX; i++)
@@ -66,13 +37,9 @@ vector<int> generateDataset(int size) {
     shuffle(pool.begin(), pool.end(), rng);
     dataset.assign(pool.begin(), pool.begin() + size);
 
-    return dataset;   // intentionally UNSORTED
+    return dataset;
 }
 
-// ─────────────────────────────────────────────
-//  Linear Search  —  O(n)
-//  Works on unsorted OR sorted arrays
-// ─────────────────────────────────────────────
 SearchResult linearSearch(const vector<int>& arr, int key) {
     SearchResult res = {-1, 0, 0.0, false};
 
@@ -87,16 +54,24 @@ SearchResult linearSearch(const vector<int>& arr, int key) {
         }
     }
 
+    int dummy = 0;
+    for (int iter = 0; iter < BENCHMARK_ITER - 1; iter++) {
+        for (int i = 0; i < (int)arr.size(); i++) {
+            if (arr[i] == key) {
+                dummy += i;
+                break;
+            }
+        }
+    }
+
     auto end  = high_resolution_clock::now();
-    res.timeUs = duration_cast<nanoseconds>(end - start).count() / 1000.0;
+    if (dummy == 0x7FFFFFFF) cout << " ";
+    duration<double, micro> diff = end - start;
+    res.timeUs = diff.count() / BENCHMARK_ITER;
 
     return res;
 }
 
-// ─────────────────────────────────────────────
-//  Binary Search  —  O(log n)
-//  Requires a SORTED array
-// ─────────────────────────────────────────────
 SearchResult binarySearch(const vector<int>& arr, int key) {
     SearchResult res = {-1, 0, 0.0, false};
 
@@ -106,37 +81,46 @@ SearchResult binarySearch(const vector<int>& arr, int key) {
     while (low <= high) {
         res.comparisons++;
         int mid = low + (high - low) / 2;
-
         if (arr[mid] == key) {
             res.position = mid;
             res.found    = true;
             break;
         } else if (arr[mid] < key) {
-            low  = mid + 1;
+            low = mid + 1;
         } else {
             high = mid - 1;
         }
     }
 
+    int dummy = 0;
+    for (int iter = 0; iter < BENCHMARK_ITER - 1; iter++) {
+        int l = 0, h = (int)arr.size() - 1;
+        while (l <= h) {
+            int m = l + (h - l) / 2;
+            if (arr[m] == key) {
+                dummy += m;
+                break;
+            }
+            else if (arr[m] < key) l = m + 1;
+            else h = m - 1;
+        }
+    }
+
     auto end  = high_resolution_clock::now();
-    res.timeUs = duration_cast<nanoseconds>(end - start).count() / 1000.0;
+    if (dummy == 0x7FFFFFFF) cout << " ";
+    duration<double, micro> diff = end - start;
+    res.timeUs = diff.count() / BENCHMARK_ITER;
 
     return res;
 }
 
-// ─────────────────────────────────────────────
-//  Sorting with timing
-// ─────────────────────────────────────────────
 double sortDataset(vector<int>& arr) {
     auto start = high_resolution_clock::now();
     sort(arr.begin(), arr.end());
     auto end   = high_resolution_clock::now();
-    return duration_cast<microseconds>(end - start).count() / 1000.0;  // ms
+    return duration_cast<microseconds>(end - start).count() / 1000.0;
 }
 
-// ─────────────────────────────────────────────
-//  Display Helpers
-// ─────────────────────────────────────────────
 void printDivider(char c = '=', int width = 70) {
     cout << string(width, c) << "\n";
 }
@@ -172,48 +156,36 @@ void printSearchDetail(const string& algo,
     if (r.found)
         cout << "  Position    : index " << r.position              << "\n";
     cout << "  Comparisons : " << r.comparisons                    << "\n";
-    cout << "  Time Taken  : " << fixed << setprecision(3)
+    cout << "  Time Taken  : " << fixed << setprecision(5)
                                << r.timeUs << " microseconds\n";
 }
 
-// ─────────────────────────────────────────────
-//  Run All Cases for One Algorithm
-// ─────────────────────────────────────────────
 struct CaseSet {
     SearchResult best, average, worst;
 };
 
 CaseSet runLinearSearchCases(const vector<int>& arr) {
     CaseSet cs;
-    // Best case  : first element of the array
     cs.best    = linearSearch(arr, arr.front());
-    // Average    : element near the middle
     cs.average = linearSearch(arr, arr[arr.size() / 2]);
-    // Worst case : element NOT in array (full scan)
-    cs.worst   = linearSearch(arr, -1);   // -1 never exists
+    cs.worst   = linearSearch(arr, -1);
     return cs;
 }
 
 CaseSet runBinarySearchCases(const vector<int>& sortedArr) {
     CaseSet cs;
-    // Best case  : element at exact midpoint (found in 1 comparison)
     int mid    = sortedArr[sortedArr.size() / 2];
     cs.best    = binarySearch(sortedArr, mid);
 
-    // Average    : element at 3/4 position
     int avg    = sortedArr[sortedArr.size() * 3 / 4];
     cs.average = binarySearch(sortedArr, avg);
 
-    // Worst case : element NOT in array (max comparisons = log2(n)+1)
     cs.worst   = binarySearch(sortedArr, -1);
     return cs;
 }
 
-// ─────────────────────────────────────────────
-//  Step-by-Step Trace (first 20 steps)
-// ─────────────────────────────────────────────
 void traceLinearSearch(const vector<int>& arr, int key, int maxSteps = 20) {
-    cout << "\n  [ Linear Search Trace — key: " << key << " ]\n";
+    cout << "\n  [ Linear Search Trace - key: " << key << " ]\n";
     cout << "  " << string(48, '-') << "\n";
     cout << "  Step  |  Index  |  arr[i]  |  Match?\n";
     cout << "  " << string(48, '-') << "\n";
@@ -233,7 +205,7 @@ void traceLinearSearch(const vector<int>& arr, int key, int maxSteps = 20) {
 }
 
 void traceBinarySearch(const vector<int>& arr, int key) {
-    cout << "\n  [ Binary Search Trace — key: " << key << " ]\n";
+    cout << "\n  [ Binary Search Trace - key: " << key << " ]\n";
     cout << "  " << string(64, '-') << "\n";
     cout << "  Step  |  Low   |  Mid   |  High  |  arr[mid]  |  Decision\n";
     cout << "  " << string(64, '-') << "\n";
@@ -261,12 +233,9 @@ void traceBinarySearch(const vector<int>& arr, int key) {
         if (decision == "FOUND") break;
     }
     if (low > high)
-        cout << "  NOT FOUND — exhausted search space.\n";
+        cout << "  NOT FOUND - exhausted search space.\n";
 }
 
-// ─────────────────────────────────────────────
-//  Final Analysis Summary
-// ─────────────────────────────────────────────
 void printAnalysis(CaseSet& ls, CaseSet& bs, double sortTimeMs) {
 
     printHeader("COMPARATIVE ANALYSIS");
@@ -287,7 +256,7 @@ void printAnalysis(CaseSet& ls, CaseSet& bs, double sortTimeMs) {
     cout << "\n  Theoretical Complexity:\n";
     cout << "    Linear Search : Best O(1)  | Average O(n/2) | Worst O(n)\n";
     cout << "    Binary Search : Best O(1)  | Average O(log n) | Worst O(log n)\n";
-    cout << "    Sort Overhead : O(n log n) — one-time cost\n";
+    cout << "    Sort Overhead : O(n log n) - one-time cost\n";
 
     cout << "\n  Dataset Size      : " << DATASET_SIZE << " books\n";
     cout << "  Theoretical log2  : " << (int)ceil(log2(DATASET_SIZE)) << " (max binary search comparisons)\n";
@@ -308,7 +277,7 @@ void printAnalysis(CaseSet& ls, CaseSet& bs, double sortTimeMs) {
   2. DYNAMIC DATASETS (frequent insertions/deletions):
        Linear Search is more practical.
        Maintaining a sorted array for binary search is expensive
-       (each insertion requires shifting elements — O(n) cost).
+       (each insertion requires shifting elements - O(n) cost).
        Linear search works directly on an unsorted list.
 
   3. PREPROCESSING OVERHEAD:
@@ -325,12 +294,8 @@ void printAnalysis(CaseSet& ls, CaseSet& bs, double sortTimeMs) {
     printDivider();
 }
 
-// ─────────────────────────────────────────────
-//  MAIN
-// ─────────────────────────────────────────────
 int main() {
 
-    // ── 1. Generate Dataset ──────────────────
     printHeader("STEP 1: Generating 50,000 Book Accession Numbers");
     cout << "  Generating unique random accession numbers...\n";
     vector<int> unsortedBooks = generateDataset(DATASET_SIZE);
@@ -340,7 +305,6 @@ int main() {
     cout << "  Total books loaded: " << unsortedBooks.size() << "\n";
 
 
-    // ── 2. LINEAR SEARCH (on unsorted array) ─
     printHeader("STEP 2: Linear Search on Unsorted Array");
 
     CaseSet ls = runLinearSearchCases(unsortedBooks);
@@ -356,9 +320,8 @@ int main() {
     printSearchDetail("Linear Search", "Worst", -1, ls.worst);
 
 
-    // ── 3. SORT THE ARRAY ────────────────────
     printHeader("STEP 3: Sorting the Dataset (Preprocessing Overhead)");
-    vector<int> sortedBooks = unsortedBooks;   // copy
+    vector<int> sortedBooks = unsortedBooks;
     double sortTimeMs = sortDataset(sortedBooks);
     cout << "  Sorting " << DATASET_SIZE << " books using std::sort (Introsort)...\n";
     cout << "  Sort completed in: " << fixed << setprecision(3) << sortTimeMs << " ms\n";
@@ -367,7 +330,6 @@ int main() {
         cout << sortedBooks[i] << (i < 9 ? ", " : "\n");
 
 
-    // ── 4. BINARY SEARCH (on sorted array) ───
     printHeader("STEP 4: Binary Search on Sorted Array");
 
     CaseSet bs = runBinarySearchCases(sortedBooks);
@@ -388,7 +350,6 @@ int main() {
     traceBinarySearch(sortedBooks, -1);
 
 
-    // ── 5. CUSTOM SEARCH ─────────────────────
     printHeader("STEP 5: Custom Search (Enter Your Own Key)");
     cout << "  Enter an accession number to search: ";
     int userKey;
@@ -403,7 +364,6 @@ int main() {
     printSearchDetail("Binary Search", "Custom", userKey, userBS);
 
 
-    // ── 6. FINAL ANALYSIS ────────────────────
     printAnalysis(ls, bs, sortTimeMs);
 
     return 0;
