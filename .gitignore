@@ -1,0 +1,20 @@
+# Ignore build artifacts
+*.exe
+*.o
+*.obj
+*.out
+*.log
+
+# Ignore editor and OS files
+.DS_Store
+Thumbs.db
+
+# Ignore Visual Studio Code workspace settings
+.vscode/
+
+# Ignore compiled binaries
+library_search
+
+# Ignore temporary files
+*~
+*.tmp
